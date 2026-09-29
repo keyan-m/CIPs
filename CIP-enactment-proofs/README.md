@@ -14,9 +14,9 @@ License: CC-BY-4.0
 ## Abstract
 
 This CIP exposes the latest enacted governance action IDs through an optional
-transaction-body field and a new Plutus `TxInfo` field. When `is_valid = true`,
-phase 1 checks the supplied IDs against existing governance state. This provides
-contracts with evidence of enactment without adding persistent ledger state.
+transaction-body field and a new Plutus `TxInfo` field. Phase-1 checks against
+existing governance state provide contracts with evidence of enactment without
+adding persistent ledger state.
 
 ## Motivation: Why is this CIP necessary?
 
@@ -93,8 +93,8 @@ transaction_id = bytes .size 32
 | Category mapped to `nil` | Assert that the category has no enacted action ID. |
 | Category mapped to an action ID | Assert that this is the latest enacted action in that category. |
 
-Duplicate category keys, unknown categories, and malformed action IDs must be
-rejected. These structural checks apply regardless of `is_valid`.
+Duplicate category keys, unknown categories, and malformed action IDs are always
+rejected.
 
 ### Phase-1 validation
 
@@ -104,7 +104,8 @@ category, supplied value, and expected value. The check also applies to
 transactions without Plutus scripts.
 
 When `is_valid = false`, skip this equality check. This follows the existing
-[`validateTreasuryValue` check][treasury-check].
+[`validateTreasuryValue` check][treasury-check]. In that case, inclusion in a block
+does not authenticate the supplied IDs.
 
 ### Plutus script context
 
@@ -135,11 +136,8 @@ order. For `EnactmentAssertion`, use constructor indices `0`, `1`, and `2` for
 `Omitted`, `NoneEnacted`, and `LatestEnacted`, respectively. Only `LatestEnacted`
 has a field, using the existing `GovernanceActionId` encoding.
 
-As with the [current treasury value][treasury-context], context construction uses
-the transaction body, without substituting live ledger values.
-
-Context construction is independent of `is_valid`. Assertions are therefore
-guaranteed correct only for transactions accepted with `is_valid = true`.
+As with the [current treasury value][treasury-context], construct this field solely
+from the transaction body.
 
 ### Repeated reads and availability
 
@@ -167,9 +165,8 @@ Using existing roots limits validation to four comparisons and avoids new ledger
 state. Retaining parents or history would require additional storage and a rule
 for recovering information about actions enacted before activation.
 
-Supplying IDs in the transaction keeps script inputs fixed. If a newer action
-enacts before inclusion, a transaction asserting the old ID fails phase 1 when
-`is_valid = true`; the script's input does not change.
+Supplying IDs in the transaction keeps script inputs fixed. A later enactment can
+make an assertion stale, but cannot change what a script sees.
 
 ### Compatibility
 
@@ -203,8 +200,8 @@ Required test cases:
 
 - Omitted, empty, and `nil` values; matching, wrong, and stale IDs; a mismatch
   among multiple categories; transactions without Plutus scripts.
-- Equality checks skipped for `is_valid = false`, with malformed data rejected
-  for either flag; deterministic context translation and record field ordering.
+- Both validation branches and unconditional structural checks; deterministic
+  context translation and record field ordering.
 - Repeated reads, committee/no-confidence changes, and multiple enactments in one
   category at the same boundary, where only the final root matches.
 - Activation with existing roots, rollback, node restart, and independence from
