@@ -111,17 +111,32 @@ When `is_valid = false`, skip this equality check. This follows the existing
 Add the following field to `TxInfo`:
 
 ```haskell
-txInfoLatestEnactedActions :: Map Integer (Maybe GovernanceActionId)
+data EnactmentAssertion
+  = Omitted
+  | NoneEnacted
+  | LatestEnacted GovernanceActionId
+
+data LatestEnactedActions = LatestEnactedActions
+  { protocolParameters :: EnactmentAssertion
+  , hardFork           :: EnactmentAssertion
+  , committee          :: EnactmentAssertion
+  , constitution       :: EnactmentAssertion
+  }
+
+txInfoLatestEnactedActions :: LatestEnactedActions
 ```
 
-Copy the supplied map with integer keys in ascending order, translating `nil` to
-`Nothing` and IDs to `Just id`. An omitted field becomes an empty map; omitted
-categories remain absent. Use a Plutus Data map and the existing `Maybe` and
-`GovernanceActionId` encodings.
+Transaction-body keys `0`–`3` populate the record fields in declaration order.
+Omitted categories become `Omitted`, `nil` becomes `NoneEnacted`, and an ID becomes
+`LatestEnacted id`. An omitted or empty body field produces four `Omitted` values.
+
+Encode the record as Plutus Data constructor `0`, with fields in declaration
+order. For `EnactmentAssertion`, use constructor indices `0`, `1`, and `2` for
+`Omitted`, `NoneEnacted`, and `LatestEnacted`, respectively. Only `LatestEnacted`
+has a field, using the existing `GovernanceActionId` encoding.
 
 As with the [current treasury value][treasury-context], context construction uses
-the transaction body. It must not fill in omitted categories or replace supplied
-IDs with live ledger values.
+the transaction body, without substituting live ledger values.
 
 Context construction is independent of `is_valid`. Assertions are therefore
 guaranteed correct only for transactions accepted with `is_valid = true`.
@@ -189,7 +204,7 @@ Required test cases:
 - Omitted, empty, and `nil` values; matching, wrong, and stale IDs; a mismatch
   among multiple categories; transactions without Plutus scripts.
 - Equality checks skipped for `is_valid = false`, with malformed data rejected
-  for either flag; deterministic context translation and key ordering.
+  for either flag; deterministic context translation and record field ordering.
 - Repeated reads, committee/no-confidence changes, and multiple enactments in one
   category at the same boundary, where only the final root matches.
 - Activation with existing roots, rollback, node restart, and independence from
