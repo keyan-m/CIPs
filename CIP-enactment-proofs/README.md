@@ -165,6 +165,10 @@ Using existing roots limits validation to four comparisons and avoids new ledger
 state. Retaining parents or history would require additional storage and a rule
 for recovering information about actions enacted before activation.
 
+For proposals submitted in the transaction, contracts can compare the parent ID
+with the latest enacted ID for its category to distinguish an enacted parent
+from a pending one.
+
 Supplying IDs in the transaction keeps script inputs fixed. A later enactment can
 make an assertion stale, but cannot change what a script sees.
 
